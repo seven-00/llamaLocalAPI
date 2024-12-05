@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat with Ollama</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background-color: #f4f4f9;
+      }
+
+      #chat-box {
+        width: 80%;
+        max-width: 800px;
+        height: 70%;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 10px;
+        overflow-y: auto;
+        background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      #chat-box .message {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 10px;
+        max-width: max-content;
+      }
+
+      .user {
+        align-self: flex-end;
+        background-color: #007bff;
+        color: white;
+        border-radius: 15px;
+        padding: 10px;
+        margin-left: auto;
+        word-wrap: break-word;
+
+        max-width: max-content;
+        max-width: 600px;
+      }
+
+      .bot {
+        align-self: flex-start;
+        background-color: #f1f0f0;
+        color: #333;
+        border-radius: 15px;
+        padding: 10px;
+        margin-right: auto;
+        word-wrap: break-word;
+        min-width: 400px;
+        max-width: 700px;
+        white-space: pre-wrap; /* Ensures whitespace and indentation is preserved */
+      }
+
+      .duration {
+        font-size: 0.8em;
+        color: #888;
+        margin-top: 5px;
+        align-self: flex-start;
+      }
+
+      #input-area {
+        width: 80%;
+        max-width: 600px;
+        margin-top: 10px;
+        display: flex;
+        gap: 10px;
+      }
+
+      #input-area input {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 16px;
+      }
+
+      #input-area button {
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      #input-area button:hover {
+        background-color: #0056b3;
+      }
+
+      /* Formatter styles */
+      .formatted-text {
+        white-space: pre-wrap; /* Preserve whitespace and line breaks */
+      }
+      .bold {
+        font-weight: bold;
+      }
+      .italic {
+        font-style: italic;
+      }
+      .code {
+        font-family: monospace;
+        background-color: #f0f0f0;
+        padding: 2px 5px;
+        border-radius: 5px;
+      }
+
+      /* Typing animation styles */
+      .typing-animation {
+        display: inline-block;
+        border-right: 0px solid;
+        animation: typing 3s steps(30) 1s 1 normal forwards,
+          blinkCaret 0.75s step-end infinite;
+      }
+
+      @keyframes typing {
+        from {
+          width: 0;
+        }
+        to {
+          width: 100%;
+        }
+      }
+
+      @keyframes blinkCaret {
+        50% {
+          border-color: transparent;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="chat-box"></div>
+    <div id="input-area">
+        <button id="stop-btn" onclick="stopGenerating()">Stop Generating</button>
+        <input type="text" id="user-input" placeholder="Type your message here..." />
+        <button onclick="sendMessage()">Send</button>
+        
+      </div>
+    </div>
+
+    <script>
+
+
+let abortController = new AbortController(); // Initialize abort controller for requests
+let isGenerating = false; // Flag to track if generation is happening
+function stopGenerating() {
+  abortController.abort(); // Abort the current fetch request
+  abortController = new AbortController(); // Reset the abort controller for future requests
+  console.log("Generation stopped.");
+}
+
+      // Function to format text based on simple markdown-like syntax
+      function formatText(text) {
+        // Bold text (between **)
+        text = text.replace(/\*\*(.*?)\*\*/g, '<span class="bold">$1</span>');
+        // Italic text (between *)
+        text = text.replace(/\*(.*?)\*/g, '<span class="italic">$1</span>');
+        // Code block (between backticks)
+        text = text.replace(/`(.*?)`/g, '<span class="code">$1</span>');
+        return text;
+      }
+
+      // Function to simulate typing animation
+      function simulateTyping(element, text, delay = 10) {
+        let i = 0;
+        const typingSpeed = delay; // Typing speed in milliseconds
+        const formattedText = formatText(text); // Preprocess text for HTML formatting
+        const tempElement = document.createElement("div"); // Temporary element to safely hold HTML
+
+        const interval = setInterval(() => {
+          tempElement.innerHTML = formattedText.substring(0, i); // Add one character at a time
+          element.innerHTML = tempElement.innerHTML; // Safely update the element's content
+          i++;
+          if (i > formattedText.length) {
+            clearInterval(interval);
+            element.classList.remove("typing-animation"); // Remove typing animation class
+          }
+        }, typingSpeed);
+      }
+
+      async function sendMessage() {
+        const inputField = document.getElementById("user-input");
+  const message = inputField.value.trim();
+  if (!message || isGenerating) return; // Don't send if already generating
+
+  // Set generating flag and disable the "Stop" button
+        isGenerating = true;
+        document.getElementById("stop-btn").disabled = false;
+
+        // Display user's message
+        const chatBox = document.getElementById("chat-box");
+        const userMessage = document.createElement("div");
+        userMessage.className = "message user";
+        userMessage.innerHTML = formatText(message); // Apply formatting
+        chatBox.appendChild(userMessage);
+
+        // Clear input field
+        inputField.value = "";
+
+        // Scroll to the bottom of the chat box
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        try {
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ prompt: message }),
+            signal: abortController.signal,
+          });
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder("utf-8");
+          let cumulativeResponse = ""; // Collect the chunks
+          let chunkCount = 0; // Track number of chunks
+          let accumulatedText = ""; // Hold accumulated text for animation
+
+          // Create a container for bot's messages
+          const botContainer = document.createElement("div");
+          botContainer.className = "message bot"; // Ensure the bot container has the 'bot' class
+          chatBox.appendChild(botContainer);
+
+          // Variable to hold all content in the current batch
+          let currentBatchDiv = null;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true }).trim();
+            try {
+              const jsonChunk = JSON.parse(chunk);
+              
+              if (jsonChunk.error) {
+                console.error("Error:", jsonChunk.error);
+                break;
+              }
+
+              // Update the cumulative response and accumulate chunks
+              if (jsonChunk.response) {
+                cumulativeResponse += jsonChunk.response;
+                accumulatedText += jsonChunk.response; // Add response text for animation
+                chunkCount++;
+
+                // If 10 chunks are accumulated, create a new div for the batch
+                if (chunkCount % 10 === 0) {
+                  // Create a new div for this batch of 10 chunks inside the bot container
+                  currentBatchDiv = document.createElement("div");
+                  currentBatchDiv.className = " typing-animation";
+                  botContainer.appendChild(currentBatchDiv); // Append to the bot container
+
+                  // Trigger the typing animation for this batch
+                  simulateTyping(currentBatchDiv, accumulatedText);
+
+                  // Reset accumulated text after animation for the next batch
+                  accumulatedText = "";
+                }
+              }
+
+              // Handle completion signal if needed
+              if (jsonChunk.done) {
+                console.log("Stream complete.");
+
+                // If there are remaining chunks less than 10, animate them as a final batch
+                if (accumulatedText.length > 0) {
+                  if (botContainer == undefined) {
+                    const newBotContainer = document.createElement("div");
+                    newBotContainer.className = "message bot"; // Final bot message container
+                    chatBox.appendChild(newBotContainer);
+                  } else {
+                    newBotContainer = botContainer;
+                  }
+
+                  const newBotMessage = document.createElement("div");
+                  newBotMessage.className = "typing-animation";
+                  newBotContainer.appendChild(newBotMessage);
+
+                  // Trigger the typing animation for the last chunk(s)
+                  simulateTyping(newBotMessage, accumulatedText);
+
+                  // add duration
+                  const duration = document.createElement("div");
+                  const total_duration = jsonChunk.total_duration / 1e+9
+                  duration.textContent = `Response time: ${total_duration.toFixed(
+                    2
+                  )} seconds`;
+                  duration.className = "duration";
+                  botContainer.appendChild(duration);
+                }
+                break;
+              }
+            } catch (error) {
+              console.error("Failed to parse chunk:", chunk);
+            }
+
+            // Scroll to the bottom of the chat box
+            // chatBox.scrollTop = chatBox.scrollHeight;
+          }
+
+          // Add the duration if available
+
+          // Ensure scrolling to the bottom
+          //   chatBox.scrollTop = chatBox.scrollHeight;
+        } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log("Request aborted.");
+    } else {
+      console.log("Error:", error);
+    }
+  } finally {
+    isGenerating = false;
+    document.getElementById("stop-btn").disabled = true;
+  }
+}
+    </script>
+  </body>
+</html>
