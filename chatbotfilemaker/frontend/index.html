@@ -13,20 +13,20 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 100vh;
-        background-color: #f4f4f9;
+        max-height: 100vh;
+        background-image: white;
       }
 
       #chat-box {
+        visibility: hidden;
         width: 80%;
         max-width: 800px;
         height: 70%;
-        border: 1px solid #ccc;
+        border: 0px solid #ccc;
         border-radius: 8px;
         padding: 10px;
         overflow-y: auto;
         background-color: #fff;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       }
 
       #chat-box .message {
@@ -96,31 +96,68 @@
       #input-area {
         width: 80%;
         max-width: 600px;
-        margin-top: 10px;
+        margin-top: 200px;
         display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      #greetings {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande",
+          "Lucida Sans", Arial, sans-serif;
+      }
+      #input-box {
+        padding: 10px;
+        width: 90vh;
+        min-height: 50px;
+        max-height: 300px;
+        border: 1px solid #ccc;
+        border-radius: 15px;
+        background-color: #e0e0e0;
+        font-size: 16px;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
         gap: 10px;
       }
 
-      #input-area input {
-        flex: 1;
-        padding: 10px;
-        border: 1px solid #ccc;
-        border-radius: 8px;
+      #user-input {
+        padding-top: 20px;
+        width: 65vh;
+        min-height: 50px;
+        max-height: 200px; /* Limit the height */
+        border: 0px solid #ccc;
+        border-radius: 15px;
+        background-color: #e0e0e0;
         font-size: 16px;
+        font-family: Arial, sans-serif;
+        outline: none;
+        resize: none; /* Disable manual resizing */
+        overflow-y: auto; /* Scroll if content exceeds max-height */
+        box-sizing: border-box;
       }
 
-      #input-area button {
+      #input-send {
         padding: 10px 20px;
-        background-color: #007bff;
+        background-color: #7e7e7e;
         color: white;
         border: none;
+        height: 50px;
         border-radius: 8px;
         font-size: 16px;
         cursor: pointer;
       }
-
-      #input-area button:hover {
-        background-color: #0056b3;
+      #input-upload button {
+        background-color: grey;
+        border: 0px;
+        border-radius: 10px;
+        font-size: 16px;
+        width: 130px;
+        height: 50px;
+        color: #f0f0f0;
       }
 
       /* Formatter styles */
@@ -138,6 +175,13 @@
         background-color: #f0f0f0;
         padding: 2px 5px;
         border-radius: 5px;
+      }
+
+      .line {
+        width: 1.5px;
+        height: 40px;
+        background-color: #6d6d6d;
+        margin: 10px 0;
       }
 
       /* Typing animation styles */
@@ -165,45 +209,50 @@
     </style>
   </head>
   <body>
-    <p>Skynet</p>
+    <p>SKYNET</p>
     <div id="chat-box"></div>
     <div id="input-area">
-      <!-- Existing input for text -->
-      <input
-        type="text"
-        id="user-input"
-        placeholder="Type your message here..."
-      />
-      <button onclick="sendMessage()">Send</button>
+      <div id="greetings">
+        <h1>Good afternoon, sir</h1>
+      </div>
+      <div id="input-box">
+        <div id="input-upload">
+          <label for="file-upload" style="cursor: pointer">
+            <button
+              type="button"
+              onclick="document.getElementById('file-upload').click()"
+            >
+              Upload PDF
+            </button>
+          </label>
+          <input
+            type="file"
+            id="file-upload"
+            accept="application/pdf"
+            style="display: none"
+            onchange="uploadPDF()"
+          />
+        </div>
+        <div class="line"></div>
+        <textarea
+          id="user-input"
+          placeholder="What can I do for you?"
+          oninput="resizeTextarea(this)"
+          onpaste="resizeTextarea(this)"
+        ></textarea>
 
-      <!-- New file upload button -->
-      <label
-        for="file-upload"
-        style="
-          cursor: pointer;
-          background-color: #007bff;
-          color: white;
-          border-radius: 8px;
-          padding: 10px 10px;
-          margin: 0;
-          display: inline-block;
-        "
-      >
-        Upload PDF
-      </label>
-      <input
-        type="file"
-        id="file-upload"
-        accept="application/pdf"
-        style="display: none"
-        onchange="uploadPDF()"
-      />
-
+        <button onclick="sendMessage()" id="input-send">Send</button>
+      </div>
       <!-- Stop generating button -->
       <button id="stop-btn" onclick="stopGenerating()">Stop Generating</button>
     </div>
 
     <script>
+      function resizeTextarea(element) {
+        element.style.height = "auto"; // Reset height to calculate the new height
+        element.style.height = element.scrollHeight + "px"; // Set the height based on scrollHeight
+      }
+
       // Wait for the document to load before starting the animation
       function animate() {
         const textElement = document.getElementById("generatebot");
@@ -255,13 +304,43 @@
           }
         }, typingSpeed);
       }
+      let hasFirstMessageBeenSent = false; // Track whether the first message has been sent
+
+      function updateAfterFirstMessage() {
+        // Example changes after the first message
+        const greetingsElement = document.getElementById("greetings");
+        if (greetingsElement) {
+          greetingsElement.style.display = "none"; // Hide greetings
+        }
+        const inputArea = document.getElementById("input-area");
+        inputArea.style.marginTop = "0px";
+        const inputBox = document.getElementById("input-box");
+        if (inputBox) {
+          inputBox.style.marginTop = "20px"; // Adjust margin for input box
+        }
+
+        const chatBox = document.getElementById("chat-box");
+
+        if (chatBox) {
+          chatBox.style.height = "100vh";
+          chatBox.style.visibility = "visible";
+        }
+
+        console.log("Changes applied after the first message.");
+      }
       async function uploadPDF() {
+        console.log("initiated file upload");
         const fileInput = document.getElementById("file-upload");
+
         const file = fileInput.files[0];
 
         if (!file) {
           alert("Please select a PDF file to upload.");
           return;
+        }
+        if (!hasFirstMessageBeenSent) {
+          updateAfterFirstMessage();
+          hasFirstMessageBeenSent = true; // Ensure this runs only once
         }
 
         // Read the file as binary data
@@ -270,7 +349,7 @@
           const pdfData = reader.result;
 
           try {
-            const response = await fetch("/extract-text", {
+            const response = await fetch("/api/upload_pdf", {
               method: "POST",
               headers: {
                 "Content-Type": "application/pdf", // Indicating it's a PDF file
@@ -280,18 +359,18 @@
 
             if (response.ok) {
               const result = await response.json();
-              if (result.extracted_text) {
+              if (result.content) {
                 // Send the extracted text to the bot for processing
 
-                sendMessage("PDF", result.extracted_text);
+                sendMessage("PDF", result.content);
               } else {
-                botMessage.innerText = `Error: ${result.error}`;
+                console.log(`Error text`);
               }
             } else {
-              botMessage.innerText = "Failed to process the PDF.";
+              console.log(`Error`);
             }
           } catch (error) {
-            botMessage.innerText = `Error: ${error.message}`;
+            console.log(error);
           }
         };
 
@@ -306,13 +385,18 @@
         if (type == "PDF") {
           userMessage.className = "message user";
           userMessage.innerHTML = `
-          Your PDF has been uploaded successfully.
-        `; // Apply formatting
+            Your PDF has been uploaded successfully.
+          `; // Apply formatting
           chatBox.appendChild(userMessage);
         } else {
           userMessage.className = "message user";
           userMessage.innerHTML = formatText(message); // Apply formatting
           chatBox.appendChild(userMessage);
+        }
+
+        if (!hasFirstMessageBeenSent) {
+          updateAfterFirstMessage();
+          hasFirstMessageBeenSent = true; // Ensure this runs only once
         }
 
         const botContainer = document.createElement("div");
@@ -349,8 +433,6 @@
           let chunkCount = 0; // Track number of chunks
           let accumulatedText = ""; // Hold accumulated text for animation
           generatebot.innerHTML = "<br>";
-          
-
 
           // Create a container for bot's messages
 

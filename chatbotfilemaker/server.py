@@ -76,7 +76,7 @@ def chat():
     full_prompt = f"{conversation_history}\n\nUser: {prompt}\nBot:"
 
     # Debugging: Print session data to the command line
-    print("Total user messages in session:", session['user_messages'])
+    # print("Total user messages in session:", session['user_messages'])
 
     # Stream response from Ollama API
     def stream_response():
@@ -88,27 +88,39 @@ def chat():
             
     return Response(stream_response(), content_type="application/json")
 
-@app.route('/get-session', methods=['GET'])
-def get_session_data():
+@app.route('/api/upload_pdf', methods=['POST'])
+def upload_pdf():
     """
-    Retrieve and return the current session data (user messages).
+    Extract text from a PDF uploaded as raw binary data.
     """
-    user_messages = session.get('user_messages', [])
-    
-    # Debugging: Print current session state to the console
-    print("Current user messages in session:", user_messages)
-    
-    return jsonify({
-        "user_messages": user_messages
-    })
+    try:
+        # Read the raw binary data from the request
+        binary_pdf = request.data
 
-@app.route('/clear-session', methods=['GET'])
-def clear_session_data():
-    """
-    Clear the session data and reset the user messages.
-    """
-    session.clear()  # Clear all session data
-    return jsonify({"message": "Session data cleared"})
+        if not binary_pdf:
+            return jsonify({"error": "No binary data received"}), 400
+
+        # Use io.BytesIO to convert the binary data into a file-like object
+        pdf_file = io.BytesIO(binary_pdf)
+
+        # Read the PDF using pypdf
+        pdf_reader = PdfReader(pdf_file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+
+        if not text.strip():
+            return jsonify({"error": "Unable to extract text from the PDF"}), 400
+
+        # Optionally store the extracted text in the session
+        session['pdf_content'] = text
+
+        # Return the extracted text or process it further
+        return jsonify({"message": "PDF text extracted successfully", "content": text[:500]}), 200
+        # Note: Return only the first 500 characters to avoid sending too much data
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to process the PDF: {e}"}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
