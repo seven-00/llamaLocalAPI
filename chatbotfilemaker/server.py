@@ -6,6 +6,7 @@ import io
 from pypdf import PdfReader
 from flask_session import Session  # Import Flask-Session for session management with Redis
 import redis
+import subprocess
 
 app = Flask(__name__, static_folder="frontend")  # Specify the folder for static files
 
@@ -21,28 +22,44 @@ app.config['SESSION_REDIS'] = redis.StrictRedis(host='localhost', port=6379, db=
 # Initialize the session extension
 Session(app)
 
+def flush_redis_in_wsl():
+    try:
+        # Command to flush Redis in WSL
+        cmd = "wsl redis-cli FLUSHDB"
+        process = subprocess.run(cmd, shell=True, check=True, text=True)
+        print("Redis database in WSL has been flushed successfully!")
+    except subprocess.CalledProcessError as e:
+        print(f"Error occurred while running the WSL command: {e}")
+
 def query_ollama_stream(prompt: str, host: str = "http://localhost:11434", model: str = "llama3.2:1b"):
     """
     Stream the response from Ollama API and yield JSON chunks as they arrive.
     """
+
     url = f"{host}/api/generate"
     payload = {
         "model": model,
         "prompt": prompt,
     }
-
+    
     try:
+        print(f"Making POST request to: {url} with model {model}")
         with requests.post(url, json=payload, stream=True) as response:
-            response.raise_for_status()
+            response.raise_for_status()  # Check for request errors
+            # print(f"Response status code: {response.status_code}")
             for line in response.iter_lines():
                 if line:
                     try:
-                        json_obj = json.loads(line)
-                        yield json_obj
+                        json_obj = json.loads(line)  # Parse each chunk
+                        # print(f"Received chunk: {json_obj}")  # Print the chunk for debugging
+                        yield json_obj  # Yield each chunk of data as it arrives
                     except json.JSONDecodeError:
-                        continue
+                        print("Failed to decode JSON from chunk")  # Handle invalid JSON
+                        continue  # Ignore lines that are not valid JSON
     except requests.exceptions.RequestException as e:
-        yield {"error": f"Error communicating with Ollama: {e}"}
+        # print(f"Error during request: {e}")  # Print error message for debugging
+        yield {"error": f"Error communicating with Ollama: {e}"}  # Yield error if request fails
+
 
 @app.route("/")
 def index():
@@ -52,41 +69,55 @@ def index():
 @app.route('/api/chat', methods=['POST'])
 def chat():
     """
-    Store user messages in a session array and stream responses.
+    Store user and bot messages in a session array only after the stream is completed.
     """
     data = request.json
     prompt = data.get("prompt", "")
     
     if not prompt:
-        return jsonify({"error": "No prompt provided"}), 400
+        return jsonify({"error": "No prompt provided"}), 400  # Ensure a response is always returned
 
-    # Store the user message in the session (initialize if necessary)
-    if 'user_messages' not in session:
-        session['user_messages'] = []  # Initialize the array if it doesn't exist
+    # Initialize the session storage for conversation if it doesn't exist
+    if 'conversation_history' not in session:
+        session['conversation_history'] = []
 
-    # Append the user message to the session array
-    session['user_messages'].append(prompt)
-
-    # Optional: Limit the array size to the last 10 messages
-    if len(session['user_messages']) > 10:
-        session['user_messages'].pop(0)  # Remove the oldest message
+    # Append the user message to the session conversation history
+    session['conversation_history'].append({"role": "user", "message": prompt})
 
     # Combine session messages into the prompt context
-    conversation_history = "\n".join(session['user_messages'])
+    conversation_history = "\n".join(
+        [f"{item['role'].capitalize()}: {item['message']}" for item in session['conversation_history']]
+    )
     full_prompt = f"{conversation_history}\n\nUser: {prompt}\nBot:"
-
-    # Debugging: Print session data to the command line
-    # print("Total user messages in session:", session['user_messages'])
-
-    # Stream response from Ollama API
+    final_bot_message = ""
     def stream_response():
-        for chunk in query_ollama_stream(full_prompt):
+        bot_message = ""
+        error_occurred = False
+        print("Starting to stream response from Ollama...")  # Debugging start of response stream
+    
+        for chunk in query_ollama_stream(full_prompt):  # Assuming query_ollama_stream yields chunks
+            # print(f"Received chunk: {chunk}")  # Debugging the received chunk
+        
             if "error" in chunk:
+                print(f"Error received from Ollama: {chunk['error']}")  # Debugging error message from Ollama
                 yield json.dumps({"error": chunk["error"]}) + "\n"
+                error_occurred = True
                 break
-            yield json.dumps(chunk) + "\n"
-            
+        
+            if "response" in chunk:
+                bot_message += chunk["response"]
+                # print(f"Appending message: {chunk['response']}")  # Debugging the message being appended to bot_message
+                yield json.dumps(chunk) + "\n"
+            global final_bot_message
+            final_bot_message = bot_message
+    
+
+    # Ensure the function returns a valid response
+    print("streaming")
+    print(f"Final bot message: {final_bot_message}")  # Debugging the final bot message
+    session['conversation_history'].append({"role": "bot", "message": final_bot_message})
     return Response(stream_response(), content_type="application/json")
+
 
 @app.route('/api/upload_pdf', methods=['POST'])
 def upload_pdf():
@@ -116,11 +147,12 @@ def upload_pdf():
         session['pdf_content'] = text
 
         # Return the extracted text or process it further
-        return jsonify({"message": "PDF text extracted successfully", "content": text[:500]}), 200
+        return jsonify({"message": "PDF text extracted successfully", "content": text}), 200
         # Note: Return only the first 500 characters to avoid sending too much data
 
     except Exception as e:
         return jsonify({"error": f"Failed to process the PDF: {e}"}), 500
 
 if __name__ == "__main__":
+    flush_redis_in_wsl()
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -209,11 +209,10 @@
     </style>
   </head>
   <body>
-    <p>SKYNET</p>
     <div id="chat-box"></div>
     <div id="input-area">
       <div id="greetings">
-        <h1>Good afternoon, sir</h1>
+        <h1 id="greetings header"></h1>
       </div>
       <div id="input-box">
         <div id="input-upload">
@@ -240,14 +239,28 @@
           oninput="resizeTextarea(this)"
           onpaste="resizeTextarea(this)"
         ></textarea>
-
         <button onclick="sendMessage()" id="input-send">Send</button>
       </div>
-      <!-- Stop generating button -->
-      <button id="stop-btn" onclick="stopGenerating()">Stop Generating</button>
     </div>
 
     <script>
+      const greetHeader = document.getElementById("greetings header");
+      function greetUser() {
+        const now = new Date();
+        const hours = now.getHours();
+        let greeting;
+
+        if (hours < 12 && hours > 6) {
+          greeting = "Good morning, sir";
+        } else if (hours < 18 && hours > 6) {
+          greeting = "Good afternoon, sir";
+        } else {
+          greeting = "Good evening, sir";
+        }
+
+        greetHeader.innerText = greeting;
+      }
+      greetUser();
       function resizeTextarea(element) {
         element.style.height = "auto"; // Reset height to calculate the new height
         element.style.height = element.scrollHeight + "px"; // Set the height based on scrollHeight
@@ -274,6 +287,7 @@
         abortController.abort(); // Abort the current fetch request
         abortController = new AbortController(); // Reset the abort controller for future requests
         console.log("Generation stopped.");
+        toggleSendButton(false);
       }
 
       // Function to format text based on simple markdown-like syntax
@@ -314,6 +328,7 @@
         }
         const inputArea = document.getElementById("input-area");
         inputArea.style.marginTop = "0px";
+        inputArea.style.marginBottom = "10px";
         const inputBox = document.getElementById("input-box");
         if (inputBox) {
           inputBox.style.marginTop = "20px"; // Adjust margin for input box
@@ -359,6 +374,9 @@
 
             if (response.ok) {
               const result = await response.json();
+              result.content =
+                result.content +
+                "This data is extracted from the PDF file user uploaded. Learn this data and explain it";
               if (result.content) {
                 // Send the extracted text to the bot for processing
 
@@ -377,8 +395,21 @@
         // Read the PDF file as a binary string
         reader.readAsArrayBuffer(file);
       }
+      function toggleSendButton(isGenerating) {
+        const sendButton = document.getElementById("input-send");
+        if (isGenerating) {
+          sendButton.textContent = "Stop Generating";
+          sendButton.onclick = stopGenerating; // Change functionality to stop generating
+          sendButton.disabled = false; // Ensure the button is clickable
+        } else {
+          sendButton.textContent = "Send";
+          sendButton.onclick = () => sendMessage(); // Revert functionality to sendMessage
+          sendButton.disabled = false; // Re-enable the button
+        }
+      }
 
       async function sendMessage(type, message = inputField.value.trim()) {
+       
         if (!message || isGenerating) return; // Don't send if already generating
         const chatBox = document.getElementById("chat-box");
         const userMessage = document.createElement("div");
@@ -393,7 +424,7 @@
           userMessage.innerHTML = formatText(message); // Apply formatting
           chatBox.appendChild(userMessage);
         }
-
+        console.log("initiated message send");
         if (!hasFirstMessageBeenSent) {
           updateAfterFirstMessage();
           hasFirstMessageBeenSent = true; // Ensure this runs only once
@@ -409,7 +440,7 @@
         botContainer.appendChild(generatebot);
 
         isGenerating = true;
-        document.getElementById("stop-btn").disabled = false;
+        toggleSendButton(true);
         animate();
         // Clear input field
         inputField.value = "";
@@ -426,6 +457,7 @@
             body: JSON.stringify({ prompt: message }),
             signal: abortController.signal,
           });
+          console.log("response", response);
 
           const reader = response.body.getReader();
           const decoder = new TextDecoder("utf-8");
@@ -525,7 +557,7 @@
           }
         } finally {
           isGenerating = false;
-          document.getElementById("stop-btn").disabled = true;
+          toggleSendButton(false);
         }
       }
     </script>
