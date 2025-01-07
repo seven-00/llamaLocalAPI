@@ -1,0 +1,125 @@
+# Python Environment Setup Script
+
+This VBScript automates the setup of a Python development environment on Windows systems, including Python installation, virtual environment creation, and Redis configuration in WSL (Windows Subsystem for Linux).
+
+## Overview
+
+The script performs the following tasks:
+1. Checks for and installs Python 3.3 if necessary
+2. Creates a Python virtual environment
+3. Installs required Python packages
+4. Verifies and starts Redis server in WSL
+5. Logs all operations to a text file
+
+## Prerequisites
+
+- Windows operating system
+- Windows Subsystem for Linux (WSL) installed
+- Winget package manager
+- Administrative privileges
+
+## Installation
+
+1. Save the script as `setup_environment.vbs`
+2. Right-click the script and select "Run with Script Host"
+   - Or run from command line: `cscript setup_environment.vbs`
+
+## Features
+
+### Automated Installation
+- Checks existing Python installation
+- Installs/upgrades Python 3.3 using winget if needed
+- Creates and configures a virtual environment
+- Installs required Python packages:
+  - Flask
+  - Requests
+  - PyPDF
+  - Flask-Session
+  - Redis
+
+### Redis Integration
+- Verifies Redis server status in WSL
+- Automatically starts Redis server if not running
+
+### Logging
+- Creates detailed installation logs
+- Log file: `installation_log.txt`
+- Timestamps all operations
+- Records success/failure of each step
+
+## Log File Format
+
+The script generates logs in the following format:
+```
+Log file started at [timestamp]
+Checking for Python installation...
+[Operation details...]
+Installation complete.
+```
+
+## Error Handling
+
+The script includes error handling for:
+- Python installation failures
+- Virtual environment creation issues
+- Package installation problems
+- Redis server connection issues
+
+## Troubleshooting
+
+If you encounter issues:
+
+1. Check the `installation_log.txt` file for error messages
+2. Verify administrative privileges
+3. Ensure WSL is properly installed for Redis functionality
+4. Confirm internet connectivity for package installations
+
+## Script Components
+
+### Main Functions
+
+`WriteLog(message)`
+- Writes messages to the log file
+- Creates log file if it doesn't exist
+- Appends new messages with timestamps
+
+`RunCommand(cmd)`
+- Executes system commands
+- Returns exit code
+- Runs commands in minimized window
+
+## Dependencies
+
+The script manages installation of:
+- Python 3.3
+- Python packages:
+  - Flask
+  - Requests
+  - PyPDF
+  - Flask-Session
+  - Redis
+- Redis server (via WSL)
+
+## Notes
+
+- The script requires internet connectivity for package installation
+- All operations are logged for troubleshooting
+- Commands are run in minimized windows to reduce visual clutter
+- Virtual environment is created in the same directory as the script
+
+## Security Considerations
+
+- Script requires administrative privileges
+- All package installations use official repositories
+- No sensitive data is stored in logs
+
+## Contributing
+
+To contribute to this script:
+1. Fork the repository
+2. Make your changes
+3. Submit a pull request with a clear description of modifications
+
+## License
+
+This script is released under the MIT License. Feel free to modify and distribute as needed.
