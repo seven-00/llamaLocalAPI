@@ -3,7 +3,7 @@ import requests
 
 
 class QueryOllama:
-    def __init__(self, host: str = "http://localhost:11434", model: str = "qwen2.5-coder:0.5b"):
+    def __init__(self, host: str = "http://localhost:11434", model: str = "llama3.2:1b"):
         """Initialize with default API host and model."""
         self.host = host
         self.model = model

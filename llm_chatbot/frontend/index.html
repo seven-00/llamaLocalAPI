@@ -376,7 +376,7 @@
               const result = await response.json();
               result.content =
                 result.content +
-                "This data is extracted from the PDF file user uploaded. Learn this data and explain it";
+                "This data is extracted from the PDF file user uploaded.";
               if (result.content) {
                 // Send the extracted text to the bot for processing
 
@@ -409,7 +409,6 @@
       }
 
       async function sendMessage(type, message = inputField.value.trim()) {
-       
         if (!message || isGenerating) return; // Don't send if already generating
         const chatBox = document.getElementById("chat-box");
         const userMessage = document.createElement("div");
@@ -486,9 +485,12 @@
 
               // Update the cumulative response and accumulate chunks
               if (jsonChunk.response) {
+                
                 cumulativeResponse += jsonChunk.response;
                 accumulatedText += jsonChunk.response; // Add response text for animation
                 chunkCount++;
+
+                
 
                 // If 10 chunks are accumulated, create a new div for the batch
                 if (chunkCount % 10 === 0) {
@@ -508,7 +510,7 @@
               // Handle completion signal if needed
               if (jsonChunk.done) {
                 console.log("Stream complete.");
-
+                sendBotResponse(cumulativeResponse); // Send the bot response to the server
                 // If there are remaining chunks less than 10, animate them as a final batch
                 if (accumulatedText.length > 0) {
                   if (botContainer == undefined) {
@@ -559,6 +561,24 @@
           isGenerating = false;
           toggleSendButton(false);
         }
+      }
+      function sendBotResponse(botMessage) {
+        fetch("/api/bot", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            bot_message: botMessage,
+          }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log("Bot response accepted:", data);
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
       }
     </script>
   </body>
